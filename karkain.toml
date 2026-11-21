@@ -1,0 +1,7 @@
+name = "karkain-distributed"
+version = "0.1.0-dev"
+description = "Distributed cluster coordination model for Karkain"
+license = "MIT"
+targets = ["native"]
+
+[dependencies]

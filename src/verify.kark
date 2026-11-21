@@ -1,0 +1,10 @@
+// Integration verification for the Karkain-Distributed public API.
+import distributed
+
+func main() {
+    let c = add_node(add_node(new_cluster(), "n1", "healthy", 1), "n2", "down", 1)
+    assert_eq(node_count(c), 2)
+    assert_eq(choose_leader(c), "n1")
+    println(describe_node(c, "n1"))
+    println("quorum=" + str(quorum_reached(c, 2)))
+}

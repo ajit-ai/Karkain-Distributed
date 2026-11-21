@@ -1,0 +1,126 @@
+// Karkain-Distributed - distributed coordination primitives.
+// Karkain Language v1.2.0 verified baseline (tag v1.2.0,
+// commit 77d70693e1e3134dac312a303bffafa7d50fa988).
+//
+// Scope boundary: this framework models cluster membership, health and
+// quorum decisions in portable Karkain. It does not perform network I/O,
+// leader election protocols or consensus.
+//
+// Representation: triples [name, state, weight, ...].
+
+// new_cluster returns an empty cluster model.
+public func new_cluster() {
+    return []
+}
+
+// add_node adds or replaces a node with a state and weight.
+public func add_node(cluster, name, state, weight) {
+    let out = remove_node(cluster, name)
+    out = push(out, name)
+    out = push(out, state)
+    out = push(out, weight)
+    return out
+}
+
+// remove_node deletes a node.
+public func remove_node(cluster, name) {
+    let out = []
+    let i = 0
+    while (i < len(cluster)) {
+        if cluster[i] == name {
+            i = i + 3
+        } else {
+            out = push(out, cluster[i])
+            out = push(out, cluster[i + 1])
+            out = push(out, cluster[i + 2])
+            i = i + 3
+        }
+    }
+    return out
+}
+
+// node_count returns the number of nodes.
+public func node_count(cluster) {
+    return len(cluster) / 3
+}
+
+// node_state returns a node state or "missing".
+public func node_state(cluster, name) {
+    let i = 0
+    while (i < len(cluster)) {
+        if cluster[i] == name {
+            return cluster[i + 1]
+        }
+        i = i + 3
+    }
+    return "missing"
+}
+
+// set_node_state updates a known node's state.
+public func set_node_state(cluster, name, state) {
+    if node_state(cluster, name) == "missing" {
+        return cluster
+    }
+    let out = []
+    let i = 0
+    while (i < len(cluster)) {
+        if cluster[i] == name {
+            out = push(out, cluster[i])
+            out = push(out, state)
+            out = push(out, cluster[i + 2])
+        } else {
+            out = push(out, cluster[i])
+            out = push(out, cluster[i + 1])
+            out = push(out, cluster[i + 2])
+        }
+        i = i + 3
+    }
+    return out
+}
+
+// available_count counts nodes in the "healthy" state.
+public func available_count(cluster) {
+    let n = 0
+    let i = 0
+    while (i < len(cluster)) {
+        if cluster[i + 1] == "healthy" {
+            n = n + 1
+        }
+        i = i + 3
+    }
+    return n
+}
+
+// quorum_reached reports whether healthy node count meets a threshold.
+public func quorum_reached(cluster, threshold) {
+    return available_count(cluster) >= threshold
+}
+
+// choose_leader returns the first healthy node name or "".
+public func choose_leader(cluster) {
+    let i = 0
+    while (i < len(cluster)) {
+        if cluster[i + 1] == "healthy" {
+            return cluster[i]
+        }
+        i = i + 3
+    }
+    return ""
+}
+
+// describe_node builds a one-line node diagnostic.
+public func describe_node(cluster, name) {
+    return name + ":" + node_state(cluster, name) + ":w=" + str(node_weight(cluster, name))
+}
+
+// node_weight returns a node weight or 0.
+public func node_weight(cluster, name) {
+    let i = 0
+    while (i < len(cluster)) {
+        if cluster[i] == name {
+            return cluster[i + 2]
+        }
+        i = i + 3
+    }
+    return 0
+}

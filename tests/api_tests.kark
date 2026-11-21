@@ -1,0 +1,63 @@
+// Native tests for Karkain-Distributed.
+
+func sample_cluster() {
+    let c = add_node(new_cluster(), "n1", "healthy", 1)
+    c = add_node(c, "n2", "healthy", 1)
+    return add_node(c, "n3", "down", 1)
+}
+
+func test_new_cluster() {
+    assert_eq(node_count(new_cluster()), 0)
+    assert_eq(node_state(new_cluster(), "n1"), "missing")
+}
+
+func test_add_node() {
+    let c = sample_cluster()
+    assert_eq(node_count(c), 3)
+    assert_eq(node_state(c, "n1"), "healthy")
+    assert_eq(node_weight(c, "n1"), 1)
+}
+
+func test_add_node_replaces() {
+    let c = add_node(sample_cluster(), "n1", "down", 5)
+    assert_eq(node_count(c), 3)
+    assert_eq(node_state(c, "n1"), "down")
+    assert_eq(node_weight(c, "n1"), 5)
+}
+
+func test_set_node_state() {
+    let c = set_node_state(sample_cluster(), "n3", "healthy")
+    assert_eq(node_state(c, "n3"), "healthy")
+    assert_eq(available_count(c), 3)
+}
+
+func test_set_unknown_noop() {
+    let c = set_node_state(new_cluster(), "x", "healthy")
+    assert_eq(node_count(c), 0)
+}
+
+func test_available_count_and_quorum() {
+    let c = sample_cluster()
+    assert_eq(available_count(c), 2)
+    assert(quorum_reached(c, 2))
+    assert(quorum_reached(c, 3) == false)
+}
+
+func test_choose_leader() {
+    let c = sample_cluster()
+    assert_eq(choose_leader(c), "n1")
+    let all_down = set_node_state(set_node_state(c, "n1", "down"), "n2", "down")
+    assert_eq(choose_leader(all_down), "")
+}
+
+func test_remove_node() {
+    let c = remove_node(sample_cluster(), "n1")
+    assert_eq(node_count(c), 2)
+    assert_eq(node_state(c, "n1"), "missing")
+}
+
+func test_describe_node() {
+    let c = sample_cluster()
+    assert_eq(describe_node(c, "n1"), "n1:healthy:w=1")
+    assert_eq(describe_node(c, "x"), "x:missing:w=0")
+}

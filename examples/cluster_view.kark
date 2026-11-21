@@ -1,0 +1,14 @@
+// Karkain-Distributed runnable example: model cluster membership.
+import distributed
+
+func main() {
+    let c = new_cluster()
+    c = add_node(c, "alpha", "healthy", 1)
+    c = add_node(c, "beta", "healthy", 2)
+    c = add_node(c, "gamma", "down", 1)
+
+    println(describe_node(c, "alpha"))
+    println("available=" + str(available_count(c)))
+    println("leader=" + choose_leader(c))
+    println("quorum2=" + str(quorum_reached(c, 2)))
+}
