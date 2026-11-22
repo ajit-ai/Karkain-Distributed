@@ -1,0 +1,18 @@
+// Karkain-Distributed Phase 2 example: deterministic cluster models.
+import distributed
+
+func main() {
+    let membership = join_cluster(join_cluster(new_membership(), "n1"), "n2")
+    println("members=" + str(member_count(membership)))
+
+    let discovery = register_service(new_discovery(), "db", "n1")
+    println("db_node=" + lookup_service(discovery, "db"))
+
+    let topology = assign_shard(new_topology(), 0, "n1")
+    println("shard0=" + shard_node(topology, 0))
+
+    let election = set_leader(advance_term(new_election(1)), "n1")
+    println("leader=" + election_leader(election))
+    println("quorum=" + str(write_quorum(3)))
+    println("slot=" + str(hash_slot("key", 4)))
+}

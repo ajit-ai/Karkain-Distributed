@@ -61,3 +61,94 @@ func test_describe_node() {
     assert_eq(describe_node(c, "n1"), "n1:healthy:w=1")
     assert_eq(describe_node(c, "x"), "x:missing:w=0")
 }
+
+// --- Phase 2 regression ---
+
+func test_phase1_regression() {
+    let c = sample_cluster()
+    assert_eq(node_count(c), 3)
+    assert_eq(available_count(c), 2)
+    assert(quorum_reached(c, 2))
+    assert_eq(choose_leader(c), "n1")
+}
+
+// --- Phase 2 additions ---
+
+func test_node_metadata() {
+    let n = new_node_meta("n1", "127.0.0.1", "worker")
+    assert_eq(node_address(n), "127.0.0.1")
+    assert_eq(node_role(n), "worker")
+    assert_eq(n[0], "n1")
+}
+
+func test_membership() {
+    let m = join_cluster(join_cluster(new_membership(), "a"), "b")
+    assert_eq(member_count(m), 2)
+    assert(is_member(m, "a"))
+    assert(is_member(m, "c") == false)
+    assert_eq(member_count(leave_cluster(m, "a")), 1)
+    assert_eq(member_count(join_cluster(m, "a")), 2)
+}
+
+func test_discovery() {
+    let d = register_service(register_service(new_discovery(), "db", "n1"), "cache", "n2")
+    assert_eq(lookup_service(d, "db"), "n1")
+    assert(service_registered(d, "cache"))
+    assert(service_registered(d, "none") == false)
+    assert_eq(lookup_service(d, "none"), "")
+}
+
+func test_topology_and_hashing() {
+    let t = assign_shard(assign_shard(new_topology(), 0, "n1"), 1, "n2")
+    assert_eq(shard_count(t), 2)
+    assert_eq(shard_node(t, 1), "n2")
+    assert_eq(shard_node(t, 9), "")
+    let slot = hash_slot("abc", 4)
+    assert(slot >= 0)
+    assert(slot < 4)
+    assert_eq(hash_slot("abc", 0), 0)
+}
+
+func test_election() {
+    let e = set_leader(advance_term(new_election(1)), "n1")
+    assert_eq(election_term(e), 2)
+    assert_eq(election_leader(e), "n1")
+    assert_eq(election_leader(new_election(1)), "")
+}
+
+func test_heartbeats() {
+    let h = record_heartbeat(record_heartbeat(new_heartbeats(), "n1", 1), "n1", 2)
+    assert_eq(heartbeat_sequence(h, "n1"), 2)
+    assert_eq(heartbeat_sequence(h, "n2"), -1)
+    assert_eq(heartbeat_contract(), "transport.heartbeat(node_id)")
+}
+
+func test_work_assignments() {
+    let a = assign_work(assign_work(new_work_assignments(), "job1", "n1"), "job2", "n2")
+    assert_eq(work_owner(a, "job1"), "n1")
+    assert_eq(work_owner(a, "job2"), "n2")
+    assert_eq(work_owner(a, "none"), "")
+}
+
+func test_consistency_and_failure() {
+    let c = new_consistency("quorum", 3)
+    assert_eq(consistency_mode(c), "quorum")
+    assert_eq(replica_count(c), 3)
+    assert_eq(write_quorum(3), 2)
+    assert_eq(classify_remote_failure(1), "timeout")
+    assert_eq(classify_remote_failure(2), "unreachable")
+    assert_eq(classify_remote_failure(9), "permanent")
+    let r = new_remote_retry(3)
+    assert(remote_should_retry(r, 2))
+    assert(remote_should_retry(r, 3) == false)
+}
+
+func test_operation_and_shutdown() {
+    assert_eq(operation_id(new_operation("op1")), "op1")
+    assert(cluster_drains(cluster_shutdown_policy(true)))
+    assert(cluster_drains(cluster_shutdown_policy(false)) == false)
+    assert_eq(concurrency_contract(), "concurrency.submit(local_task)")
+    assert_eq(actor_contract(), "distributed.place(actor_id,node_id)")
+    assert_eq(event_contract(), "event.route(topic,node_id)")
+    assert_eq(cloud_contract(), "cloud.resource(node_id)")
+}

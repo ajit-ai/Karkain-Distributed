@@ -124,3 +124,281 @@ public func node_weight(cluster, name) {
     }
     return 0
 }
+
+// ---------------------------------------------------------------------------
+// Phase 2 additions. Phase 1 cluster API is unchanged. All logic below is
+// deterministic local modelling; remote communication, consensus and
+// replication are BLOCKED without a multi-node transport provider.
+
+// new_node_meta creates node identity metadata.
+public func new_node_meta(id, address, role) {
+    let n = []
+    n = push(n, id)
+    n = push(n, address)
+    n = push(n, role)
+    return n
+}
+
+// node_address returns a node address.
+public func node_address(meta) { return meta[1] }
+
+// node_role returns a node role.
+public func node_role(meta) { return meta[2] }
+
+// new_membership creates an empty membership store.
+public func new_membership() {
+    return []
+}
+
+// join_cluster adds a node to membership.
+public func join_cluster(membership, name) {
+    if is_member(membership, name) { return membership }
+    return push(membership, name)
+}
+
+// leave_cluster removes a node from membership.
+public func leave_cluster(membership, name) {
+    let out = []
+    let i = 0
+    while (i < len(membership)) {
+        if membership[i] != name { out = push(out, membership[i]) }
+        i = i + 1
+    }
+    return out
+}
+
+// is_member reports whether a node is present.
+public func is_member(membership, name) {
+    let i = 0
+    while (i < len(membership)) {
+        if membership[i] == name { return true }
+        i = i + 1
+    }
+    return false
+}
+
+// member_count returns the number of members.
+public func member_count(membership) { return len(membership) }
+
+// new_discovery creates an empty service discovery registry.
+public func new_discovery() {
+    return []
+}
+
+// register_service maps a service name to a node.
+public func register_service(discovery, service, node) {
+    let out = discovery
+    out = push(out, service)
+    out = push(out, node)
+    return out
+}
+
+// lookup_service returns a node for a service or "".
+public func lookup_service(discovery, service) {
+    let i = 0
+    while (i < len(discovery)) {
+        if discovery[i] == service { return discovery[i + 1] }
+        i = i + 2
+    }
+    return ""
+}
+
+// service_registered reports whether a service is known.
+public func service_registered(discovery, service) {
+    return lookup_service(discovery, service) != ""
+}
+
+// new_topology creates an empty shard topology.
+public func new_topology() {
+    return []
+}
+
+// assign_shard assigns a shard to a node.
+public func assign_shard(topology, shard, node) {
+    let out = topology
+    out = push(out, shard)
+    out = push(out, node)
+    return out
+}
+
+// shard_node returns the node owning a shard or "".
+public func shard_node(topology, shard) {
+    let i = 0
+    while (i < len(topology)) {
+        if topology[i] == shard { return topology[i + 1] }
+        i = i + 2
+    }
+    return ""
+}
+
+// shard_count returns the number of assignments.
+public func shard_count(topology) { return len(topology) / 2 }
+
+// hash_slot computes a deterministic slot from a key and slot count.
+public func hash_slot(key, slots) {
+    if slots < 1 { return 0 }
+    let total = 0
+    let i = 0
+    while (i < len(key)) {
+        total = total + i + len(key)
+        i = i + 1
+    }
+    return total % slots
+}
+
+// new_election creates an election model at a term.
+public func new_election(term) {
+    let e = []
+    e = push(e, term)
+    e = push(e, "")
+    return e
+}
+
+// election_term returns the current term.
+public func election_term(election) { return election[0] }
+
+// advance_term increments the election term.
+public func advance_term(election) {
+    let out = []
+    out = push(out, election[0] + 1)
+    out = push(out, election[1])
+    return out
+}
+
+// set_leader records a leader for an election.
+public func set_leader(election, node) {
+    let out = []
+    out = push(out, election[0])
+    out = push(out, node)
+    return out
+}
+
+// election_leader returns the recorded leader.
+public func election_leader(election) { return election[1] }
+
+// heartbeat_contract documents the missing remote heartbeat operation.
+public func heartbeat_contract() { return "transport.heartbeat(node_id)" }
+
+// new_heartbeats creates a heartbeat store.
+public func new_heartbeats() {
+    return []
+}
+
+// record_heartbeat records a heartbeat for a node.
+public func record_heartbeat(store, node, sequence) {
+    let out = []
+    out = push(out, node)
+    out = push(out, sequence)
+    let i = 0
+    while (i < len(store)) {
+        if store[i] == node {
+            i = i + 2
+        } else {
+            out = push(out, store[i])
+            out = push(out, store[i + 1])
+            i = i + 2
+        }
+    }
+    out = push(out, node)
+    out = push(out, sequence)
+    return out
+}
+
+// heartbeat_sequence returns the last sequence for a node or -1.
+public func heartbeat_sequence(store, node) {
+    let i = 0
+    while (i < len(store)) {
+        if store[i] == node { return store[i + 1] }
+        i = i + 2
+    }
+    return -1
+}
+
+// new_work_assignments creates an empty work assignment store.
+public func new_work_assignments() {
+    return []
+}
+
+// assign_work assigns a work item to a node.
+public func assign_work(assignments, work, node) {
+    let out = assignments
+    out = push(out, work)
+    out = push(out, node)
+    return out
+}
+
+// work_owner returns the owner of a work item or "".
+public func work_owner(assignments, work) {
+    let i = 0
+    while (i < len(assignments)) {
+        if assignments[i] == work { return assignments[i + 1] }
+        i = i + 2
+    }
+    return ""
+}
+
+// new_consistency creates a consistency policy model.
+public func new_consistency(name, replicas) {
+    let c = []
+    c = push(c, name)
+    c = push(c, replicas)
+    return c
+}
+
+// consistency_mode returns a policy mode.
+public func consistency_mode(policy) { return policy[0] }
+
+// replica_count returns a policy replica count.
+public func replica_count(policy) { return policy[1] }
+
+// write_quorum computes a majority quorum for replicas.
+public func write_quorum(replicas) { return replicas / 2 + 1 }
+
+// classify_remote_failure maps a failure code to a class.
+public func classify_remote_failure(code) {
+    if code == 1 { return "timeout" }
+    if code == 2 { return "unreachable" }
+    return "permanent"
+}
+
+// new_remote_retry creates a remote retry policy.
+public func new_remote_retry(max_attempts) {
+    let r = []
+    r = push(r, max_attempts)
+    return r
+}
+
+// remote_should_retry reports whether another attempt is allowed.
+public func remote_should_retry(policy, attempts) { return attempts < policy[0] }
+
+// new_operation creates distributed correlation metadata.
+public func new_operation(id) {
+    let o = []
+    o = push(o, id)
+    return o
+}
+
+// operation_id returns an operation id.
+public func operation_id(operation) { return operation[0] }
+
+// cluster_shutdown_policy creates a shutdown policy with a drain flag.
+public func cluster_shutdown_policy(drain) {
+    let p = []
+    p = push(p, drain)
+    return p
+}
+
+// cluster_drains reports whether work should drain on shutdown.
+public func cluster_drains(policy) { return policy[0] }
+
+// concurrency_contract documents local task versus remote work contracts.
+public func concurrency_contract() { return "concurrency.submit(local_task)" }
+
+// actor_contract documents node/actor placement contracts.
+public func actor_contract() { return "distributed.place(actor_id,node_id)" }
+
+// event_contract documents event routing contracts.
+public func event_contract() { return "event.route(topic,node_id)" }
+
+// cloud_contract documents node/resource contracts.
+public func cloud_contract() { return "cloud.resource(node_id)" }
